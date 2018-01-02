@@ -3,13 +3,11 @@
             :url "https://github.com/weavejester/ring-oauth2"
             :license {:name "The MIT License"
                       :url  "http://opensource.org/licenses/MIT"}
-            :monolith/inherit true
             :middleware [leiningen.v/dependency-version-from-scm
                          leiningen.v/version-from-scm
                          leiningen.v/add-workspace-data]
 
-            :plugins [[lein-monolith "1.0.1"]
-                      [com.roomkey/lein-v "6.2.0"]]
+            :plugins [[com.roomkey/lein-v "6.2.0"]]
 
             :dependencies [[org.clojure/clojure "1.7.0"]
                            [cheshire "5.8.0"]
