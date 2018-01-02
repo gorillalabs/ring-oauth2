@@ -158,11 +158,7 @@
             response (test-handler-encrypted-token request)
             expires (-> 3600 time/seconds time/from-now)]
         (is (= 302 (:status response)))
-        (is (= "/" (get-in response [:headers "Location"])))
-        (is (map? (-> response :session ::oauth2/access-tokens))) ;; default success handler is writing access-token to session.
-        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))
+        (is (= "/" (get-in response [:headers "Location"])))))
 
     (testing "invalid state"
       (let [request (callback "xyzxya")
@@ -187,11 +183,7 @@
             request (callback (encrypt-state test-profile))
             response (handler request)]
         (is (= 302 (:status response)))
-        (is (= "/" (get-in response [:headers "Location"])))
-        (is (map? (-> response :session ::oauth2/access-tokens)))
-        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
+        (is (= "/" (get-in response [:headers "Location"])))))))
 
 (deftest test-access-tokens-key
   (let [tokens {:test {:token "defdef", :expires 3600}}]
@@ -266,12 +258,4 @@
             response (test-handler-encrypted-token request)
             expires (-> 3600 time/seconds time/from-now)]
         (is (= 302 (:status response)))
-        (is (= "/" (get-in response [:headers "Location"])))
-        (is (map? (-> response :session ::oauth2/access-tokens)))
-        (is (= "defdef" (-> response :session ::oauth2/access-tokens :test :token)))
-        (is (= "ghighi" (-> response :session ::oauth2/access-tokens
-                            :test :refresh-token)))
-        (is (= "abc.def.ghi" (-> response :session ::oauth2/access-tokens
-                                 :test :id-token)))
-        (is (approx-eq (-> 3600 time/seconds time/from-now)
-                       (-> response :session ::oauth2/access-tokens :test :expires)))))))
+        (is (= "/" (get-in response [:headers "Location"])))))))

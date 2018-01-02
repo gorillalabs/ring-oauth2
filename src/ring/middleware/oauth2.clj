@@ -78,17 +78,18 @@
   (.getPath (java.net.URI. redirect-uri)))
 
 
-
 (defn default-success-handler
+  [{:keys [id landing-uri] :as profile}
+   access-token
+   request]
+  (resp/redirect landing-uri))
 
-  ;; FIXME: Separation of concerns!
-  ;; this should be way more specific
-  ;; (and it shouldn't be a default handler for a non-session-based encrypted-token strategy)
 
+(defn access-token-to-session
   [{:keys [id landing-uri] :as profile}
    access-token
    {:keys [session] :or {session {}} :as request}]
-  (-> (resp/redirect landing-uri)
+  (-> (default-success-handler profile access-token request)
       (assoc :session (-> session
                           (assoc-in [::access-tokens id] access-token)))))
 
@@ -107,14 +108,13 @@
      (get-in request [:query-params "state"])))
 
 (defn- session-make-redirect-handler [{:keys [id landing-uri] :as profile}]
-  (let [error-handler-fn (:state-mismatch-handler profile default-state-mismatch-handler)]
-    (fn [{:keys [session] :or {session {}} :as request}]
+  (let [error-handler-fn (:state-mismatch-handler profile default-state-mismatch-handler)
+        success-handler (:success-handler profile access-token-to-session)]
+    (fn [request]
       (if (session-state-matches? request)
         (let [access-token (get-access-token profile request)]
-          (-> (resp/redirect landing-uri)
-              (assoc :session (-> session
-                                  (assoc-in [::access-tokens id] access-token)
-                                  (dissoc ::state)))))
+          (-> (success-handler profile access-token request)
+              (update-in [:session] dissoc ::state)))
         (error-handler-fn profile request)))))
 
 (defn- session-make-launch-handler [profile]
@@ -163,7 +163,7 @@
       (resp/redirect (authorize-uri profile request state)))))
 
 (def encrypted-token-sms
-  {:wrap-request          identity                          ;; TODO: encrypted-token could also embedd access tokens.
+  {:wrap-request          identity                          ;; TODO: encrypted-token could also embed access tokens.
    :make-redirect-handler encrypted-token-make-redirect-handler
    :make-launch-handler   encrypted-token-make-launch-handler})
 
