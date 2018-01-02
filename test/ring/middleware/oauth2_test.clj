@@ -26,8 +26,8 @@
    ;; and
    ;;     openssl rsa -pubout -in privkey.pem -out pubkey.pem
    ;; (see https://funcool.github.io/buddy-sign/latest/#generate-keypairs)
-   :public-key       (keys/public-key "/Users/chris/Projects/ARGUS/argus/osquery-API/libs/oauth2jwt/dev-resources/certs/pubkey.pem")
-   :private-key      (keys/private-key "/Users/chris/Projects/ARGUS/argus/osquery-API/libs/oauth2jwt/dev-resources/certs/privkey.pem" "password") ;; TODO: I dislike having a private key being accessible that easy...
+   :public-key       (keys/public-key "dev-resources/certs/pubkey.pem")
+   :private-key      (keys/private-key "dev-resources/certs/privkey.pem" "password") ;; TODO: I dislike having a private key being accessible that easy...
    })
 
 (defn token-handler [req]
