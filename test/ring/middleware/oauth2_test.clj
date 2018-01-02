@@ -3,15 +3,30 @@
             [clj-time.core :as time]
             [clojure.string :as str]
             [clojure.test :refer :all]
-            [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2 encrypted-token-sms]]
+            [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
+            [ring.middleware.oauth2.strategy.signed-token :refer [signed-token-sms sign-state]]
             [ring.mock.request :as mock]
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.codec :as codec]
 
             [buddy.core.keys :as keys]
+
+            [ring.middleware.oauth2.strategy.signed-token :refer [signed-token-sms]]
+            [ring.middleware.oauth2.strategy.session :refer [session-sms]]
             ))
 
-(def encrypt-state #'ring.middleware.oauth2/encrypt-state)
+
+;; these are generated using
+;;     openssl genrsa -aes256 -out privkey.pem 2048
+;; and
+;;     openssl rsa -pubout -in privkey.pem -out pubkey.pem
+;; (see https://funcool.github.io/buddy-sign/latest/#generate-keypairs)
+
+
+(def private-key (keys/private-key "dev-resources/certs/privkey.pem" "password"))
+(def public-key (keys/public-key "dev-resources/certs/pubkey.pem"))
+(def period1h (clj-time.core/hours 1))
+
 
 (def test-profile
   {:authorize-uri    "https://example.com/oauth2/authorize"
@@ -23,14 +38,11 @@
    :client-id        "abcdef"
    :client-secret    "01234567890abcdef"
 
-   ;; these are generated using
-   ;;     openssl genrsa -aes256 -out privkey.pem 2048
-   ;; and
-   ;;     openssl rsa -pubout -in privkey.pem -out pubkey.pem
-   ;; (see https://funcool.github.io/buddy-sign/latest/#generate-keypairs)
-   :public-key       (keys/public-key "dev-resources/certs/pubkey.pem")
-   :private-key      (keys/private-key "dev-resources/certs/privkey.pem" "password") ;; TODO: I dislike having a private key being accessible that easy...
+   :public-key       public-key
+   :private-key      private-key                            ;; TODO: I dislike having a private key being accessible that easy...
    })
+
+
 
 (defn token-handler [req]
   {:status 200, :headers {}, :body {:test {:expires 3600
@@ -40,7 +52,7 @@
   (wrap-oauth2 token-handler {:test test-profile}))
 
 (def test-handler-encrypted-token
-  (wrap-oauth2 token-handler {:test test-profile} :state-management-strategy encrypted-token-sms))
+  (wrap-oauth2 token-handler {:test test-profile} :state-management-strategy signed-token-sms))
 
 (deftest test-launch-uri-session
   (let [response (test-handler-session (mock/request :get "/oauth2/test"))
@@ -154,7 +166,7 @@
     {"https://example.com/oauth2/access-token" (constantly token-response)}
 
     (testing "valid state"
-      (let [request (callback (encrypt-state test-profile))
+      (let [request (callback (sign-state private-key period1h))
             response (test-handler-encrypted-token request)
             expires (-> 3600 time/seconds time/from-now)]
         (is (= 302 (:status response)))
@@ -169,7 +181,7 @@
     (testing "custom error"
       (let [error {:status 400, :headers {}, :body "Error!"}
             profile (assoc test-profile :state-mismatch-handler (constantly error))
-            handler (wrap-oauth2 token-handler {:test profile} :state-management-strategy encrypted-token-sms)
+            handler (wrap-oauth2 token-handler {:test profile} :state-management-strategy signed-token-sms)
             request (callback "xyzxya")
             response (handler request)]
         (is (= {:status 400, :headers {}, :body "Error!"}
@@ -179,8 +191,8 @@
       (let [profile (assoc test-profile
                       :redirect-uri
                       "https://example.com/oauth2/test/callback?query")
-            handler (wrap-oauth2 token-handler {:test profile} :state-management-strategy encrypted-token-sms)
-            request (callback (encrypt-state test-profile))
+            handler (wrap-oauth2 token-handler {:test profile} :state-management-strategy signed-token-sms)
+            request (callback (sign-state private-key period1h))
             response (handler request)]
         (is (= 302 (:status response)))
         (is (= "/" (get-in response [:headers "Location"])))))))
@@ -254,7 +266,7 @@
     {"https://example.com/oauth2/access-token" (constantly openid-response)}
 
     (testing "valid state"
-      (let [request (callback (encrypt-state test-profile))
+      (let [request (callback (sign-state private-key period1h))
             response (test-handler-encrypted-token request)
             expires (-> 3600 time/seconds time/from-now)]
         (is (= 302 (:status response)))
