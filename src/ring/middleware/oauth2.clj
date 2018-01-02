@@ -5,7 +5,12 @@
             [crypto.random :as random]
             [ring.util.codec :as codec]
             [ring.util.request :as req]
-            [ring.util.response :as resp]))
+            [ring.util.response :as resp]
+
+            [ring.middleware.params :as params]
+            [buddy.sign.jwt :as jwt]
+            [ring.middleware.cookies :as cookies]
+            ))
 
 (defn- redirect-uri [profile request]
   (-> (req/request-url request)
@@ -28,15 +33,38 @@
 (defn- random-state []
   (-> (random/base64 9) (str/replace "+" "-") (str/replace "/" "_")))
 
-(defn- make-launch-handler [profile]
+(defn encrypt-state [profile]
+  (jwt/encrypt {:state (random-state)
+                :nonce (crypto.random/base64 256)}
+               (:public-key profile) {:alg :rsa-oaep-256}))
+
+;; Session-state
+#_(defn- make-launch-handler [profile]
   (fn [{:keys [session] :or {session {}} :as request}]
     (let [state (random-state)]
       (-> (resp/redirect (authorize-uri profile request state))
           (assoc :session (assoc session ::state state))))))
 
-(defn- state-matches? [request]
+
+;; Session-state
+#_(defn- state-matches? [request]
   (= (get-in request [:session ::state])
      (get-in request [:query-params "state"])))
+
+
+(defn- make-launch-handler [profile]
+       (fn [request]
+           (let [state (encrypt-state profile)]
+                (resp/redirect (authorize-uri profile request state)))))
+
+(defn- state-matches? [profile request]
+       (let [state (get-in request [:query-params "state"])]
+            (try (jwt/decrypt state (:private-key profile) {:alg :rsa-oaep-256})
+                 (catch Exception e
+                   (if (= (ex-data e) {:type :validation :cause :signature})
+                     false
+                     (throw e))))))
+
 
 (defn- format-access-token
   [{{:keys [access_token expires_in refresh_token id_token]} :body :as r}]
@@ -68,10 +96,18 @@
        basic-auth? (add-header-credentials client-id client-secret)
        (not basic-auth?) (add-form-credentials client-id client-secret)))))
 
-(defn state-mismatch-handler [_]
+(defn default-state-mismatch-handler [_ _]
   {:status 400, :headers {}, :body "State mismatch"})
 
-(defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
+(defn default-success-handler [{:keys [id landing-uri] :as profile}
+                               access-token
+                               {:keys [session] :or {session {}} :as request}]
+      (-> (resp/redirect landing-uri)
+          (assoc :session (-> session
+                              (assoc-in [::access-tokens id] access-token)))))
+
+
+#_(defn- make-redirect-handler [{:keys [id landing-uri] :as profile}]
   (let [error-handler (:state-mismatch-handler profile state-mismatch-handler)]
     (fn [{:keys [session] :or {session {}} :as request}]
       (if (state-matches? request)
@@ -82,7 +118,18 @@
                                   (dissoc ::state)))))
         (error-handler request)))))
 
-(defn- assoc-access-tokens [request]
+(defn- make-redirect-handler [profile]
+       (let [error-handler-fn (:state-mismatch-handler profile default-state-mismatch-handler)
+             success-handler (:success-handler profile default-success-handler)]
+            (-> (fn [request]
+                    (if (state-matches? profile request)
+                      (let [access-token (get-access-token profile request)]
+                           (success-handler profile access-token request))
+                      (error-handler-fn profile request)))
+                (params/wrap-params)
+                (cookies/wrap-cookies))))
+
+#_(defn- assoc-access-tokens [request]
   (if-let [tokens (-> request :session ::access-tokens)]
     (assoc request :oauth2/access-tokens tokens)
     request))
@@ -99,4 +146,4 @@
         ((make-launch-handler profile) request)
         (if-let [profile (redirects uri)]
           ((make-redirect-handler profile) request)
-          (handler (assoc-access-tokens request)))))))
+          (handler request #_(assoc-access-tokens request)))))))
