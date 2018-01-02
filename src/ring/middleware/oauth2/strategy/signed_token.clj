@@ -39,26 +39,26 @@
            (throw e)))))
 
 
-(defn- make-redirect-handler [profile]
+(defn- make-redirect-handler [public-key profile]
   (let [error-handler-fn (:state-mismatch-handler profile default-state-mismatch-handler)
         success-handler (:success-handler profile default-success-handler)]
     (-> (fn [request]
-          (if (valid-state? (:public-key profile) (get-in request [:query-params "state"]))
+          (if (valid-state? public-key (get-in request [:query-params "state"]))
             (let [access-token (get-access-token profile request)]
               (success-handler profile access-token request))
             (error-handler-fn profile request)))
         (params/wrap-params)
         (cookies/wrap-cookies))))
 
-(defn- make-launch-handler [profile]
+(defn- make-launch-handler [private-key expiration-period profile]
   (fn [request]
     (let [state (sign-state
-                  (:private-key profile)                    ;; the private key of the state-generator used to sign the state
-                  (clj-time.core/hours 1)                    ;; TODO: Make configurable
+                  private-key                               ;; the private key of the state-generator used to sign the state
+                  expiration-period
                   )]
       (resp/redirect (authorize-uri profile request state)))))
 
-(def signed-token-sms
+(defn signed-token-sms [public-key private-key expiration-period] ;; (clj-time.core/hours 1)
   {:wrap-request          identity                          ;; TODO: encrypted-token could also embed access tokens.
-   :make-redirect-handler make-redirect-handler
-   :make-launch-handler   make-launch-handler})
+   :make-redirect-handler (partial make-redirect-handler public-key)
+   :make-launch-handler   (partial make-launch-handler private-key expiration-period)})
