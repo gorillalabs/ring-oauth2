@@ -45,17 +45,16 @@
       (-> (resp/redirect (authorize-uri profile request state))
           (assoc :session (assoc session ::state state))))))
 
+(defn- make-launch-handler [profile]
+       (fn [request]
+           (let [state (encrypt-state profile)]
+                (resp/redirect (authorize-uri profile request state)))))
 
 ;; Session-state
 #_(defn- state-matches? [request]
   (= (get-in request [:session ::state])
      (get-in request [:query-params "state"])))
 
-
-(defn- make-launch-handler [profile]
-       (fn [request]
-           (let [state (encrypt-state profile)]
-                (resp/redirect (authorize-uri profile request state)))))
 
 (defn- state-matches? [profile request]
        (let [state (get-in request [:query-params "state"])]
