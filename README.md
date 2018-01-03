@@ -1,6 +1,6 @@
 # Ring-OAuth2
 
-[![Build Status](https://travis-ci.org/weavejester/ring-oauth2.svg?branch=master)](https://travis-ci.org/weavejester/ring-oauth2)
+[![Build Status](https://travis-ci.org/gorillalabs/ring-oauth2.svg?branch=master)](https://travis-ci.org/gorillalabs/ring-oauth2)
 
 [Ring](https://github.com/ring-clojure/ring) middleware that acts as a [OAuth 2.0](https://oauth.net/2/) client. This is used
 for authenticating and integrating with third party website, like
@@ -11,7 +11,7 @@ Twitter, Facebook and GitHub.
 
 To install, add the following to your project `:dependencies`:
 
-    [ring-oauth2 "0.1.4"] ;; TODO: Fix after PR
+[![Clojars Project](https://img.shields.io/clojars/v/gorillalabs/ring-oauth2.svg)](https://clojars.org/gorillalabs/ring-oauth2)
 
 ## Usage
 
