@@ -18,8 +18,11 @@
   :profiles {:dev {:dependencies [[clj-http-fake "1.0.3"]
                                   [ring/ring-mock "0.3.1"]]}}
 
+  :vcs :git
   :scm {:name "git"
         :url  "https://github.com/gorillalabs/ring-oauth2"}
+
+  :deploy-repositories [["releases" :clojars]]
   :release-tasks [["vcs" "assert-committed"]
                   ["v" "update"]                            ;; compute new version & tag it
                   ["deploy"]
