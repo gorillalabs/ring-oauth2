@@ -22,5 +22,5 @@
         :url  "https://github.com/gorillalabs/ring-oauth2"}
   :release-tasks [["vcs" "assert-committed"]
                   ["v" "update"]                            ;; compute new version & tag it
-                  ["monolith" "each" "deploy"]
+                  ["deploy"]
                   ["vcs" "push"]])
