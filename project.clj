@@ -1,4 +1,4 @@
-(defproject ring-oauth2 "0.0.0"
+(defproject gorillalabs/ring-oauth2 "0.0.0"
   :description "OAuth 2.0 client middleware for Ring"
   :url "https://github.com/weavejester/ring-oauth2"
   :license {:name "The MIT License"
@@ -15,6 +15,15 @@
                  [crypto-random "1.2.0"]
                  [buddy/buddy-core "1.4.0"]
                  [buddy/buddy-sign "2.2.0"]]
-  :profiles
-  {:dev {:dependencies [[clj-http-fake "1.0.3"]
-                        [ring/ring-mock "0.3.1"]]}})
+  :profiles {:dev {:dependencies [[clj-http-fake "1.0.3"]
+                                  [ring/ring-mock "0.3.1"]]}}
+
+  :vcs :git
+  :scm {:name "git"
+        :url  "https://github.com/gorillalabs/ring-oauth2"}
+
+  :deploy-repositories [["releases" :clojars]]
+  :release-tasks [["vcs" "assert-committed"]
+                  ["v" "update"]                            ;; compute new version & tag it
+                  ["deploy"]
+                  ["vcs" "push"]])
