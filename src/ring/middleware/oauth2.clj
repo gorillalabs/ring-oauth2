@@ -30,5 +30,5 @@
         (if-let [profile (redirects uri)]
           (((:make-redirect-handler state-management-strategy) profile) request)
           (handler (if access-tokens-to-request?
-                     (:wrap-request state-management-strategy)
+                     ((:wrap-request state-management-strategy) request)
                      request)))))))
