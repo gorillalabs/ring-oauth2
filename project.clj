@@ -15,6 +15,12 @@
                  [crypto-random "1.2.0"]
                  [buddy/buddy-core "1.4.0"]
                  [buddy/buddy-sign "2.2.0"]]
-  :profiles
-  {:dev {:dependencies [[clj-http-fake "1.0.3"]
-                        [ring/ring-mock "0.3.1"]]}})
+  :profiles {:dev {:dependencies [[clj-http-fake "1.0.3"]
+                                  [ring/ring-mock "0.3.1"]]}}
+
+  :scm {:name "git"
+        :url  "https://github.com/gorillalabs/ring-oauth2"}
+  :release-tasks [["vcs" "assert-committed"]
+                  ["v" "update"]                            ;; compute new version & tag it
+                  ["monolith" "each" "deploy"]
+                  ["vcs" "push"]])
