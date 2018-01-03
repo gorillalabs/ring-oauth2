@@ -2,27 +2,38 @@
 
 [![Build Status](https://travis-ci.org/weavejester/ring-oauth2.svg?branch=master)](https://travis-ci.org/weavejester/ring-oauth2)
 
-[Ring][] middleware that acts as a [OAuth 2.0][] client. This is used
+[Ring](https://github.com/ring-clojure/ring) middleware that acts as a [OAuth 2.0](https://oauth.net/2/) client. This is used
 for authenticating and integrating with third party website, like
 Twitter, Facebook and GitHub.
 
-[ring]: https://github.com/ring-clojure/ring
-[oauth 2.0]: https://oauth.net/2/
 
 ## Installation
 
 To install, add the following to your project `:dependencies`:
 
-    [ring-oauth2 "0.1.4"]
+    [ring-oauth2 "0.1.4"] ;; TODO: Fix after PR
 
 ## Usage
 
 The middleware function to use is `ring.middleware.oauth2/wrap-oauth2`.
-This takes a Ring handler, and a map of profiles as arguments. Each
-profile has a key to identify it, and a map of options that define how
+This takes a Ring handler, a map of profiles, and optional options
+as arguments. Each profile has a key to identify it,
+and a map of options that define how
 to authorize against a third-party service.
 
-Here's an example that provides authentication with GitHub:
+The options define which strategy to use to create and verify state
+(which secures the communication to the OAuth provider):
+
+* **Session based state management strategy** (default): This will create a random
+state in the session and compare state from requests to the session state.
+
+* **Signed token state management strategy**: This will create a signed token (JWT)
+(using a private key) to be transferred.
+The token is validated by checking signature (using the public key) and claims.
+
+Here's an example that provides authentication with GitHub using
+default options (aka session based state management, storing access-keys to session,
+embedding them into the request):
 
 ```clojure
 (require '[ring.middleware.oauth2 :refer [wrap-oauth2])
@@ -40,6 +51,37 @@ Here's an example that provides authentication with GitHub:
      :redirect-uri     "/oauth2/github/callback"
      :landing-uri      "/"}}))
 ```
+
+And here's the same example using token-based state management:
+
+```clojure
+(require '[ring.middleware.oauth2 :refer [wrap-oauth2]]
+         '[buddy.core.keys :as keys]
+         '[clj-time.core]
+         '[ring.middleware.oauth2.strategy.signed-token :as token])
+
+(def private-key (keys/private-key "resources/certs/privkey.pem" "password"))
+(def public-key (keys/public-key "resources/certs/pubkey.pem"))
+(def expiry-period1h (clj-time.core/hours 1))
+
+(def signed-token-sms (token/signed-token-sms public-key private-key expiry-period1h))
+
+
+(def handler
+  (wrap-oauth2
+   routes
+   {:github
+    {:authorize-uri    "https://github.com/login/oauth/authorize"
+     :access-token-uri "https://github.com/login/oauth/access_token"
+     :client-id        "abcabcabc"
+     :client-secret    "xyzxyzxyzxyzxyz"
+     :scopes           ["user:email"]
+     :launch-uri       "/oauth2/github"
+     :redirect-uri     "/oauth2/github/callback"
+     :landing-uri      "/"}}
+   :state-management-strategy signed-token-sms))
+```
+
 
 The profile has a lot of options, and all have a necessary
 function. Let's go through them one by one.
@@ -96,11 +138,13 @@ This is an optional parameter, which defaults to false.
 If set to true, it includes the client-id and secret as a header
 `Authorization: Basic base64(id:secret)` as recommended by [the specification][].
 
+**If using the session-based state management strategy:**
 Please note, you should enable cookies to be sent with cross-site requests,
 in order to make the callback request handling work correctly, eg:
 ```clojure
 (wrap-defaults (-> site-defaults (assoc-in [:session :cookie-attrs :same-site] :lax)))
 ```
+
 
 [the specification]: https://tools.ietf.org/html/rfc6749#section-2.3.1
 
