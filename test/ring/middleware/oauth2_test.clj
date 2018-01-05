@@ -8,9 +8,7 @@
             [ring.mock.request :as mock]
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.codec :as codec]
-            [buddy.core.keys :as keys]
-            [ring.middleware.oauth2.strategy.session :refer [session-sms]]
-            ))
+            [buddy.core.keys :as keys]))
 
 
 ;; these are generated using
