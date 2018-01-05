@@ -57,3 +57,24 @@
                         :form-params (request-params profile request)}
                        basic-auth? (add-header-credentials client-id client-secret)
                        (not basic-auth?) (add-form-credentials client-id client-secret)))))
+
+
+
+(defprotocol StateManagementStrategy
+
+  (launch-handler [this profile]
+    "Creates a handler to start an OAuth workflow. Typically, this will redirect to the OAuth provider with the state
+    parameter set.")
+
+  (redirect-handler [this profile]
+    "Creates a handler to finish the OAuth workflow, i.e. to recieve the redirect from the OAuth provider.
+    Needs to make sure state (set by the launch handler) is validated to prevent CSRF attacks. Handles redirects
+    by delegation to either success-handler or error-handler from profile.")
+
+  (wrap-request [this request]
+
+    "Wrapper on 'regular' requests (i.e. not one of the middleware-provided launch/redirect/sucess/error-handlers).
+    You could use them to transfer access tokens from some internal representation to an entry in the request map.
+    If you choose to do so, please use `:ring.middleware.oauth2/access-tokens`.")
+
+  )

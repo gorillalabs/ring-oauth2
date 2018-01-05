@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [clojure.test :refer :all]
             [ring.middleware.oauth2 :as oauth2 :refer [wrap-oauth2]]
-            [ring.middleware.oauth2.strategy.signed-token :refer [signed-token-sms sign-state]]
+            [ring.middleware.oauth2.strategy.signed-token :as signed-token :refer [sign-state]]
             [ring.mock.request :as mock]
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.codec :as codec]
@@ -24,7 +24,11 @@
 (def public-key (keys/public-key "dev-resources/certs/pubkey.pem"))
 (def period1h (clj-time.core/hours 1))
 
-(def my-signed-token-sms (signed-token-sms public-key private-key period1h))
+(def cookie-opts {:id-prefix "state"
+                  :domain    ".mywebservice.local"
+                  :path      "/"})
+
+(def my-signed-token-sms (signed-token/->SignedTokenSMS public-key private-key period1h cookie-opts))
 
 (def test-profile
   {:authorize-uri    "https://example.com/oauth2/authorize"
@@ -34,8 +38,7 @@
    :landing-uri      "/"
    :scopes           [:user :project]
    :client-id        "abcdef"
-   :client-secret    "01234567890abcdef"
-   })
+   :client-secret    "01234567890abcdef"})
 
 
 
@@ -100,9 +103,10 @@
     (time/interval (time/minus a (time/seconds 1)) (time/plus a (time/seconds 1)))
     b))
 
-(defn callback [state]
+(defn callback [state & [cookie-state]]
   (-> (mock/request :get "/oauth2/test/callback")
-      (assoc :query-params {"code" "abcabc", "state" state})))
+      (assoc :query-params {"code" "abcabc", "state" state})
+      (assoc :cookies {"state_test" {:value (or cookie-state state)}})))
 
 (defn callback-session [state session-state]
   (-> (callback state)
@@ -169,6 +173,12 @@
 
     (testing "invalid state"
       (let [request (callback "xyzxya")
+            response (test-handler-encrypted-token request)]
+        (is (= {:status 400, :headers {}, :body "State mismatch"}
+               response))))
+
+    (testing "non-matching state"
+      (let [request (callback (sign-state private-key period1h) (sign-state private-key period1h))
             response (test-handler-encrypted-token request)]
         (is (= {:status 400, :headers {}, :body "State mismatch"}
                response))))

@@ -8,6 +8,7 @@
                leiningen.v/add-workspace-data]
   :plugins [[com.roomkey/lein-v "6.2.0"]]
   :dependencies [[org.clojure/clojure "1.7.0"]
+                 [org.clojure/tools.logging "0.4.0"]
                  [cheshire "5.8.0"]
                  [clj-http "3.7.0"]
                  [clj-time "0.14.2"]
