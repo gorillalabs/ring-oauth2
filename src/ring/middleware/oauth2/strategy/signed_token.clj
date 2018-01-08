@@ -5,9 +5,11 @@
             [buddy.sign.jwt :as jwt]
             [ring.middleware.cookies :as cookies]
             [clj-time.core :as time]
+            [clj-time.coerce]
             [ring.util.response :as resp]
             [clojure.tools.logging :as log]
-            [crypto.equality])
+            [crypto.equality]
+            [crypto.random])
   (:import (clojure.lang ExceptionInfo)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -27,7 +29,7 @@
 
 (defn sign-state [private-key-of-signing-system expires]
   (->
-    {:jti (crypto.random/base64 4096)
+    {:jti (crypto.random/base64 512)                        ;; Do not make this too big or it will blow cookie size limit of 4k
      :iat (clj-time.coerce/to-epoch (time/now))             ;; Issued at (see https://tools.ietf.org/html/rfc7519#section-4.1.6)
      :exp (clj-time.coerce/to-epoch (time/plus (time/now) expires)) ;; Expires (see https://tools.ietf.org/html/rfc7519#section-4.1.4)
      }
@@ -61,30 +63,27 @@
              (ex-data e)))
          false)))
 
-
-
+(defn- set-cookie [response cookie-opts profile value max-age]
+  (update-in response [:cookies]
+             assoc
+             (token-name cookie-opts profile)
+             (merge {:value     value
+                     :secure    true
+                     :http-only true
+                     :max-age   max-age                     ; - the number of seconds until the cookie expires. 86400s = 24h
+                     :same-site :lax                        ;; when set to strict, OAuth login won't work correctly, as the request to "/" is initiated by Github in the first place (Github->oauth-Callback,redirect->/)
+                     }
+                    (remove (fn [[k v]] (nil? v))
+                            (select-keys cookie-opts [:domain :path])))))
 
 (deftype SignedTokenSMS [public-key private-key expiration-period cookie-opts]
   strategy/StateManagementStrategy
 
   (launch-handler [_ profile]
     (-> (fn [request]
-          (let [state (sign-state
-                        private-key                           ;; the private key of the state-generator used to sign the state
-                        expiration-period
-                        )]
+          (let [state (sign-state private-key expiration-period)]
             (-> (resp/redirect (authorize-uri profile request state))
-                (assoc :cookies {(token-name cookie-opts profile)
-                                 {:value     state
-                                  :secure    true
-                                  :http-only true
-                                  :domain    (:domain cookie-opts)
-                                  :path      (:path cookie-opts)
-                                  :max-age   86400            ; - the number of seconds until the cookie expires. 86400s = 24h
-                                  :same-site :lax             ;; when set to strict, OAuth login won't work correctly, as the request to "/" is initiated by Github in the first place (Github->oauth-Callback,redirect->/)
-                                  }}))))
-        (params/wrap-params)
-        (cookies/wrap-cookies)))
+                (set-cookie cookie-opts profile state 86400))))))
 
   (redirect-handler [_ profile]
     (let [error-handler-fn (:state-mismatch-handler profile default-state-mismatch-handler)
@@ -95,16 +94,8 @@
                               (cookie-jwt cookie-opts profile request))
               (let [access-token (get-access-token profile request)]
                 (-> (success-handler profile access-token request)
-                    (assoc :cookies {(token-name cookie-opts profile) {:value     "deleted" ;; this is to overwrite ...
-                                                                       :secure    true
-                                                                       :http-only true
-                                                                       :domain    (:domain cookie-opts)
-                                                                       :path      (:path cookie-opts)
-                                                                       :max-age   0 ;; ... and remove the cookie (max-age 0 means this cookie won't be sent on future requests)
-                                                                       :same-site :lax}})))
-              (error-handler-fn profile request)))
-          (params/wrap-params)
-          (cookies/wrap-cookies))))
+                    (set-cookie cookie-opts profile "deleted" 0)))
+              (error-handler-fn profile request))))))
 
   (wrap-request [_ request]
     request))
