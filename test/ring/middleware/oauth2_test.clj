@@ -104,7 +104,7 @@
 (defn callback [state & [cookie-state]]
   (-> (mock/request :get "/oauth2/test/callback")
       (assoc :query-params {"code" "abcabc", "state" state})
-      (assoc :cookies {"state_test" {:value (or cookie-state state)}})))
+      (update-in [:cookies] assoc "state_test" {:value (or cookie-state state)})))
 
 (defn callback-session [state session-state]
   (-> (callback state)

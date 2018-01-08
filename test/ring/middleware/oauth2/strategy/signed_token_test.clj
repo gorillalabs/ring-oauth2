@@ -21,10 +21,12 @@
 (deftest test-signed-token-validation
   (testing "valid roundtrip"
     (let [token (sign-state private-key period1h)]
-      (is (valid-state? public-key token token))))
+      (is (valid-state? public-key token token))
+      (is (< (count token) 3000))
+      ))
   (testing "invalid: tokens differ"
     (is (not (valid-state? public-key (sign-state private-key period1h) (sign-state private-key period1h)))))
   (testing "invalid: other private key"
-    (is (not (valid-state? public-key (sign-state private-key period1h) (sign-state other-private-key period1h)))))
+    (is (not (valid-state? public-key (sign-state other-private-key period1h) (sign-state other-private-key period1h)))))
   (testing "invalid: expired"
     (is (not (valid-state? public-key (sign-state private-key period-1h) (sign-state private-key period-1h))))))
