@@ -5,6 +5,9 @@
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/tools.logging "0.4.0"]
+                 [crypto-random "1.2.0"]
+                 [buddy/buddy-core "1.4.0"]
+                 [buddy/buddy-sign "2.2.0"]
                  [cheshire "5.8.0"]
                  [clj-http "3.7.0"]
                  [clj-time "0.14.0"]
